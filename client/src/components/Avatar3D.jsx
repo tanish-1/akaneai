@@ -418,15 +418,6 @@ export default function Avatar3D({ avatarState = 'idle', isTaskFound = false, th
             point2: "#ffdac1",
             point3: "#e2f0cb",
             fog: "#ffe4e1"
-        },
-        void: {
-            ambient: "#1a1a2e",
-            ambientInt: 0.8,
-            dirColor: "#16213e",
-            point1: "#e94560",
-            point2: "#0f3460",
-            point3: "#533483",
-            fog: "#050505"
         }
     };
 

@@ -33,7 +33,7 @@ const App = () => {
     // Settings State
     const [aiTone, setAiTone] = useState('genz'); // Hardcoded genz tone
     const [voiceEnabled, setVoiceEnabled] = useState(true);
-    const [theme, setTheme] = useState('cyberpunk'); // cyberpunk, morning, void
+    const [theme, setTheme] = useState('cyberpunk'); // cyberpunk, morning
     const [showWipeModal, setShowWipeModal] = useState(false);
 
     const headerRef = useRef(null);
@@ -354,7 +354,6 @@ const App = () => {
                             <select value={theme} onChange={e => setTheme(e.target.value)} className="modern-select">
                                 <option value="cyberpunk">Cyberpunk Neon</option>
                                 <option value="morning">Soft Morning</option>
-                                <option value="void">Dark Void</option>
                             </select>
                         </div>
                     </div>
