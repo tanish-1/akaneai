@@ -42,7 +42,7 @@ mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/novaai')
     console.error('❌ MongoDB connection error:', err.message);
     // Start server anyway for testing without DB
     app.listen(PORT, () => {
-      console.log(`🚀 Nova server running on port ${PORT} (without DB)`);
+      console.log(`🚀 akane server running on port ${PORT} (without DB)`);
     });
   });
 
