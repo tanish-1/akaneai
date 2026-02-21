@@ -7,6 +7,7 @@ const chatRoutes = require('./routes/chat');
 const memoryRoutes = require('./routes/memory');
 const conversationRoutes = require('./routes/conversations');
 const reportRoutes = require('./routes/report');
+const analyticsRoutes = require('./routes/analytics');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -23,6 +24,7 @@ app.use('/api/chat', chatRoutes);
 app.use('/api/memory', memoryRoutes);
 app.use('/api/conversations', conversationRoutes);
 app.use('/api/report', reportRoutes);
+app.use('/api/analytics', analyticsRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {

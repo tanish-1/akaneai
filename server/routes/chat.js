@@ -271,3 +271,4 @@ router.delete('/history/:userId', async (req, res) => {
 });
 
 module.exports = router;
+module.exports.callAI = callAI;

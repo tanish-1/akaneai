@@ -61,4 +61,19 @@ router.delete('/:id', async (req, res) => {
     }
 });
 
+// PATCH /api/memory/:id
+router.patch('/:id', async (req, res) => {
+    try {
+        const memory = await Memory.findByIdAndUpdate(
+            req.params.id,
+            { ...req.body, updatedAt: Date.now() },
+            { new: true }
+        );
+        if (!memory) return res.status(404).json({ error: 'Memory not found' });
+        res.json(memory);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 module.exports = router;

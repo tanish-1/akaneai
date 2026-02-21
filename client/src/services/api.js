@@ -56,5 +56,15 @@ export const api = {
     healthCheck: async () => {
         const res = await axios.get(`${BASE_URL}/health`);
         return res.data;
+    },
+
+    getAnalytics: async (userId, days = 7) => {
+        const res = await axios.get(`${BASE_URL}/analytics/${userId}?days=${days}`);
+        return res.data;
+    },
+
+    getWeeklyInsights: async (userId) => {
+        const res = await axios.get(`${BASE_URL}/analytics/${userId}/insights`);
+        return res.data;
     }
 };

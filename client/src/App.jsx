@@ -2,6 +2,7 @@ import { useRef, useEffect, useState, useCallback, useMemo } from 'react';
 import { gsap } from 'gsap';
 import Avatar3D from './components/Avatar3D';
 import ChatPanel from './components/ChatPanel';
+import AnalyticsView from './components/AnalyticsView';
 // GoalsPanel is removed
 import { useVoice } from './hooks/useVoice';
 import { api } from './services/api';
@@ -109,7 +110,7 @@ const App = () => {
         return () => clearInterval(timer);
     }, [serverStatus, checkServerAndLoadData]);
 
-    const specialMemories = useMemo(() => memories.filter(m => ['note', 'goal', 'learning'].includes(m.type)), [memories]);
+    const specialMemories = useMemo(() => memories.filter(m => ['note', 'goal', 'learning'].includes(m.type) && m.status !== 'completed'), [memories]);
 
     const filteredMemories = useMemo(() => {
         return specialMemories.filter(m => {
@@ -186,7 +187,10 @@ const App = () => {
 
     const toggleReminder = async (id, status) => {
         try {
-            const updated = await api.updateMemory(id, { status: status ? 'completed' : 'active' });
+            const updated = await api.updateMemory(id, {
+                status: status ? 'completed' : 'active',
+                progress: status ? 100 : 0
+            });
             setMemories(prev => prev.map(m => m._id === id ? updated : m));
         } catch (err) {
             console.error('Toggle reminder error:', err);
@@ -248,7 +252,7 @@ const App = () => {
                         <h3>⏳ Upcoming Deadlines</h3>
                     </header>
                     <div className="deadlines-list">
-                        {memories.filter(m => m.deadline).sort((a, b) => new Date(a.deadline) - new Date(b.deadline)).slice(0, 3).map(m => (
+                        {memories.filter(m => m.deadline && m.status !== 'completed').sort((a, b) => new Date(a.deadline) - new Date(b.deadline)).slice(0, 3).map(m => (
                             <div key={m._id} className="deadline-item">
                                 <span>{m.title}</span>
                                 <small>{new Date(m.deadline).toLocaleDateString()}</small>
@@ -288,7 +292,7 @@ const App = () => {
                     </div>
                     <div className="cards-list-dashboard">
                         {filteredMemories.map(mem => (
-                            <div key={mem._id} className={`memory-card-mini ${mem.type}`}>
+                            <div key={mem._id} className={`memory-card-mini ${mem.type}`} style={{ position: 'relative' }}>
                                 <div className="card-top">
                                     <span className="type-icon">{mem.type === 'note' ? '📄' : '🎯'}</span>
                                     <span className="card-title-mini">{mem.title || mem.content}</span>
@@ -298,7 +302,12 @@ const App = () => {
                                         <div className="mini-bar" style={{ width: `${mem.progress}%` }}></div>
                                     </div>
                                 )}
-                                <button className="delete-btn-tiny" onClick={() => deleteMemory(mem._id)}>×</button>
+                                <div style={{ position: 'absolute', right: '10px', top: '10px', display: 'flex', gap: '5px' }}>
+                                    {mem.type === 'goal' && (
+                                        <button onClick={() => toggleReminder(mem._id, true)} style={{ background: 'var(--accent-cyan)', border: 'none', borderRadius: '4px', padding: '2px 8px', fontSize: '0.75rem', cursor: 'pointer', fontWeight: 'bold', color: 'black' }}>✓ Done</button>
+                                    )}
+                                    <button className="delete-btn-tiny" style={{ position: 'static', margin: 0 }} onClick={() => deleteMemory(mem._id)}>×</button>
+                                </div>
                             </div>
                         ))}
                     </div>
@@ -530,7 +539,7 @@ const App = () => {
 
                 <div className="cards-list">
                     {filteredMemories.map(mem => (
-                        <div key={mem._id} className={`memory-card-mini ${mem.type}`}>
+                        <div key={mem._id} className={`memory-card-mini ${mem.type}`} style={{ position: 'relative' }}>
                             <div className="card-top">
                                 <span className="type-icon">{mem.type === 'note' ? '📄' : '🎯'}</span>
                                 <span className="card-title-mini">{mem.title || mem.content}</span>
@@ -540,7 +549,12 @@ const App = () => {
                                     <div className="mini-bar" style={{ width: `${mem.progress}%` }}></div>
                                 </div>
                             )}
-                            <button className="delete-btn-tiny" onClick={() => deleteMemory(mem._id)}>×</button>
+                            <div style={{ position: 'absolute', right: '10px', top: '10px', display: 'flex', gap: '5px' }}>
+                                {mem.type === 'goal' && (
+                                    <button onClick={() => toggleReminder(mem._id, true)} style={{ background: 'var(--accent-cyan)', border: 'none', borderRadius: '4px', padding: '2px 8px', fontSize: '0.75rem', cursor: 'pointer', fontWeight: 'bold', color: 'black' }}>✓ Done</button>
+                                )}
+                                <button className="delete-btn-tiny" style={{ position: 'static', margin: 0 }} onClick={() => deleteMemory(mem._id)}>×</button>
+                            </div>
                         </div>
                     ))}
                 </div>
@@ -624,6 +638,7 @@ const App = () => {
                 </div>
 
                 {activeTab === 'dashboard' && <DashboardView />}
+                {activeTab === 'analytics' && <AnalyticsView memories={memories} />}
                 {activeTab === 'settings' && <SettingsView />}
             </main>
 
