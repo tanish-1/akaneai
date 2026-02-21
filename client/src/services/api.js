@@ -3,8 +3,8 @@ import axios from 'axios';
 const BASE_URL = '/api';
 
 export const api = {
-    sendMessage: async (userId, message) => {
-        const res = await axios.post(`${BASE_URL}/chat`, { userId, message });
+    sendMessage: async (userId, message, tone) => {
+        const res = await axios.post(`${BASE_URL}/chat`, { userId, message, tone });
         return res.data;
     },
 
@@ -49,7 +49,7 @@ export const api = {
     },
 
     clearHistory: async (userId) => {
-        const res = await axios.delete(`${BASE_URL}/conversations/${userId}`);
+        const res = await axios.delete(`${BASE_URL}/chat/history/${userId}`);
         return res.data;
     },
 

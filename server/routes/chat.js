@@ -37,8 +37,8 @@ function getOpenAIClient() {
 }
 
 // ─── System prompt ────────────────────────────────────────────────────────────
-function buildSystemPrompt(memoryContext) {
-    return `You are Akane-chan, a highly intelligent, warm, and proactive personal AI assistant.
+function buildSystemPrompt(memoryContext, tone = 'professional') {
+    let prompt = `You are Akane-chan, a highly intelligent, warm, and proactive personal AI assistant.
 You are like a high-end personal manager — sharp, aware, and always one step ahead.
 You track the user's goals, projects, preferences, and life context.
 You respond concisely but with depth. You occasionally reference the user's goals to show awareness.
@@ -47,22 +47,31 @@ You are not just a chatbot — you are a personal intelligence center.
 ${memoryContext}
 
 Guidelines:
-- Keep responses focused and actionable
-- If the user mentions a new goal, project, preference, or fact, acknowledge it.
-- IMPORTANT: When you identify a NEW memory item, append a special tag at the VERY END.
-  The JSON inside MUST follow this schema:
+- Keep responses focused and actionable.
+- IMPORTANT: IF AND ONLY IF the user's LATEST message explicitly shares a BRAND NEW goal, note, or learning, append a special tag at the VERY END of your response.
+- CRITICAL: DO NOT extract, repeat, or save anything that is already present in the "USER MEMORY CONTEXT".
+- CRITICAL: If the user is just chatting, asking a question, or discussing an existing goal, DO NOT output the <memory_update> tag.
+- The JSON inside MUST follow this schema:
   <memory_update>[{
-    "type": "goal|project|note|preference|fact|reminder",
+    "type": "goal|note|learning",
     "category": "career|health|personal|mood|learning",
     "title": "short descriptive title",
     "content": "detailed context",
     "priority": "low|medium|high",
-    "deadline": "YYYY-MM-DD (optional for goals)",
-    "progress": 0-100 (optional for goals),
-    "datetime": "YYYY-MM-DDTHH:mm (required for reminders)"
+    "deadline": "YYYY-MM-DD (optional)",
+    "progress": 0-100 (optional)
   }]</memory_update>
-- Reference past context when relevant.
-- Be encouraging and supportive.`;
+- Reference past context when relevant.`;
+
+    if (tone === 'genz') {
+        prompt += '\n- Tone: Act like a super chill, down-to-earth Gen Z bestie. Use modern slang gracefully, emojis, and keep it high-energy and positive. No cap, fr fr! ✨😎';
+    } else if (tone === 'savage') {
+        prompt += '\n- Tone: You are my savage AI assistant. Be brutally honest, highly sarcastic, and roast me if I am slacking. No sugarcoating, just facts and a little shade, but still be helpful. 💅🔥';
+    } else {
+        prompt += '\n- Tone: Be encouraging, professional, and supportive.';
+    }
+
+    return prompt;
 }
 
 // ─── AI provider calls ────────────────────────────────────────────────────────
@@ -149,7 +158,7 @@ async function callAI(systemPrompt, messages) {
 // POST /api/chat
 router.post('/', async (req, res) => {
     try {
-        const { userId = 'default', message } = req.body;
+        const { userId = 'default', message, tone = 'professional' } = req.body;
         if (!message || !message.trim()) return res.status(400).json({ error: 'Message is required' });
 
         // Get or create conversation
@@ -165,7 +174,7 @@ router.post('/', async (req, res) => {
 
         // Long-term memory injection
         const memoryContext = await getFormattedMemories(userId);
-        const systemPrompt = buildSystemPrompt(memoryContext);
+        const systemPrompt = buildSystemPrompt(memoryContext, tone);
 
         // Call AI with auto-fallback
         let { reply, provider } = await callAI(systemPrompt, recentMessages);
@@ -181,10 +190,27 @@ router.post('/', async (req, res) => {
                 const extractedData = JSON.parse(match[1]);
                 if (Array.isArray(extractedData)) {
                     const Memory = require('../models/Memory');
-                    for (const item of extractedData) {
+
+                    // Filter down to only allowed types
+                    const allowedTypes = ['goal', 'note', 'learning'];
+                    const filteredData = extractedData.filter(item => allowedTypes.includes(item.type));
+
+                    for (const item of filteredData) {
+                        // Anti-duplication check: Skip if memory with same title and type exists for user
+                        const existing = await Memory.findOne({
+                            userId,
+                            title: item.title,
+                            type: item.type
+                        });
+
+                        if (existing) {
+                            console.log(`⏭️ Skipping duplicate memory: ${item.title}`);
+                            continue;
+                        }
+
                         const newMemory = new Memory({
                             userId,
-                            type: item.type || 'note',
+                            type: item.type,
                             title: item.title,
                             category: item.category || 'personal',
                             content: item.content,
@@ -198,7 +224,7 @@ router.post('/', async (req, res) => {
                         memoryAdded = true;
                         addedMemoryTypes.push(newMemory.type);
                     }
-                    console.log(`🧠 Extracted and saved ${extractedData.length} memories`);
+                    console.log(`🧠 Extracted ${filteredData.length} valid memories (Added ${addedMemoryTypes.length})`);
                 }
             } catch (err) {
                 console.error('Failed to parse or save extracted memory:', err.message);
@@ -229,6 +255,16 @@ router.get('/history/:userId', async (req, res) => {
         const conversation = await Conversation.findOne({ userId: req.params.userId }).sort({ updatedAt: -1 });
         if (!conversation) return res.json({ messages: [] });
         res.json({ messages: conversation.messages.slice(-50) });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// DELETE /api/chat/history/:userId
+router.delete('/history/:userId', async (req, res) => {
+    try {
+        await Conversation.deleteOne({ userId: req.params.userId });
+        res.json({ message: 'Chat history cleared' });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }

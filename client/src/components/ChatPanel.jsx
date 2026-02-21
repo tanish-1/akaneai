@@ -8,7 +8,7 @@ function formatTime(date) {
 function TypingIndicator() {
     return (
         <div className="message nova">
-            <div className="message-avatar">N</div>
+            <div className="message-avatar">A</div>
             <div className="message-bubble">
                 <div className="typing-indicator">
                     <div className="typing-dot" />

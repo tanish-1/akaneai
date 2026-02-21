@@ -101,7 +101,6 @@ function overlayIdle(b, t) {
 }
 const OVERLAYS = { idle: overlayIdle, listening: overlayListen, thinking: overlayThink, talking: overlayTalk };
 
-// ─── SingleAnimatedModel ──────────────────────────────────────────────────────
 function SingleAnimatedModel({ url, avatarStateRef, onBonesReady, onFinished, speed = 1.0, loopRepeat = false }) {
     const group = useRef();
     const [scaled, setScaled] = useState(false); // hide model until positioned
@@ -162,7 +161,7 @@ function SingleAnimatedModel({ url, avatarStateRef, onBonesReady, onFinished, sp
 
         const animName = Object.keys(actions)[0];
         const action = animName ? actions[animName] : null;
-        console.log(`[Nova Avatar] ▶ Playing [${url}] → "${animName}"`);
+        console.log(`[Akane Avatar] ▶ Playing [${url}] → "${animName}"`);
 
         if (!action) {
             // No animation — move on
@@ -179,7 +178,7 @@ function SingleAnimatedModel({ url, avatarStateRef, onBonesReady, onFinished, sp
             action.clampWhenFinished = true;
 
             const onDone = () => {
-                console.log(`[Nova Avatar] ✅ Done: ${url}`);
+                console.log(`[Akane Avatar] ✅ Done: ${url}`);
                 if (onFinished) onFinished();
             };
             mixer.addEventListener('finished', onDone);
@@ -217,10 +216,10 @@ function SingleAnimatedModel({ url, avatarStateRef, onBonesReady, onFinished, sp
 class ModelErrorBoundary extends Component {
     constructor(props) { super(props); this.state = { hasError: false, errMsg: '' }; }
     static getDerivedStateFromError(e) { return { hasError: true, errMsg: e.message }; }
-    componentDidCatch(e) { console.error('[Nova Avatar] Model render error:', e.message); }
+    componentDidCatch(e) { console.error('[Akane Avatar] Model render error:', e.message); }
     render() {
         if (this.state.hasError) {
-            console.warn('[Nova Avatar] Skipping broken model, will auto-advance...');
+            console.warn('[Akane Avatar] Skipping broken model, will auto-advance...');
             return null; // invisible — playlist will keep going via timeout fallback
         }
         return this.props.children;
@@ -237,10 +236,10 @@ function AvatarModel({ avatarState, isTaskFound, onBehaviorLabel }) {
 
     useEffect(() => { avatarStateRef.current = avatarState; }, [avatarState]);
 
-    // Is the AI actively speaking or thinking?
-    const isActive = avatarState === 'talking' || avatarState === 'thinking';
+    // Is the AI actively speaking, thinking, or listening?
+    const isActive = avatarState === 'talking' || avatarState === 'thinking' || avatarState === 'listening';
 
-    // UPDATED: Use talking animation for ALL speech/thought
+    // UPDATED: Use talking animation for ALL speech/thought/listening
     const showTalkingModel = isActive;
 
     useEffect(() => {
@@ -396,9 +395,42 @@ function GlowPlatform() {
 }
 
 // ─── Export ───────────────────────────────────────────────────────────────────
-export default function Avatar3D({ avatarState = 'idle', isTaskFound = false }) {
+export default function Avatar3D({ avatarState = 'idle', isTaskFound = false, theme = 'cyberpunk' }) {
     const [behaviorLabel, setBehaviorLabel] = useState('💭 Idle...');
     const stateColors = { idle: '#63b3ed', listening: '#68d391', thinking: '#9f7aea', talking: '#f6ad55' };
+
+    // Theme Colors Definition
+    const themeColors = {
+        cyberpunk: {
+            ambient: "#d0c8ff",
+            ambientInt: 1.8,
+            dirColor: "#ffffff",
+            point1: "#9f7aea",
+            point2: "#63b3ed",
+            point3: "#00e5ff",
+            fog: "#07041a"
+        },
+        morning: {
+            ambient: "#fff0e5",
+            ambientInt: 1.5,
+            dirColor: "#ffecd2",
+            point1: "#ffb7b2",
+            point2: "#ffdac1",
+            point3: "#e2f0cb",
+            fog: "#ffe4e1"
+        },
+        void: {
+            ambient: "#1a1a2e",
+            ambientInt: 0.8,
+            dirColor: "#16213e",
+            point1: "#e94560",
+            point2: "#0f3460",
+            point3: "#533483",
+            fog: "#050505"
+        }
+    };
+
+    const currentTheme = themeColors[theme] || themeColors.cyberpunk;
 
     return (
         <>
@@ -412,27 +444,29 @@ export default function Avatar3D({ avatarState = 'idle', isTaskFound = false }) 
                     gl.shadowMap.enabled = true;
                     gl.shadowMap.type = THREE.PCFSoftShadowMap;
                     // Light fog — only affects far background, not the character
-                    scene.fog = new THREE.FogExp2('#07041a', 0.07);
+                    scene.fog = new THREE.FogExp2(currentTheme.fog, 0.07);
                 }}
             >
-                {/* Lighting matched to the purple/cyan neon lab background */}
-                <ambientLight intensity={1.8} color="#d0c8ff" />
-                {/* Key light — cool white top-left like the lab ceiling panels */}
+                {/* Lighting matched to the current theme */}
+                <ambientLight intensity={currentTheme.ambientInt} color={currentTheme.ambient} />
+                {/* Key light */}
                 <directionalLight position={[-3, 5, 3]} intensity={2.8} castShadow
                     shadow-mapSize-width={1024} shadow-mapSize-height={1024}
-                    color="#ffffff" />
-                {/* Purple rim from the left wall neons */}
-                <pointLight position={[-3, 2, 1]} intensity={2.2} color="#9f7aea" distance={8} />
-                {/* Cyan rim from the right side */}
-                <pointLight position={[3, 1, 1]} intensity={1.8} color="#63b3ed" distance={8} />
-                {/* Cyan floor bounce matching the lit platform */}
-                <pointLight position={[0, -1.2, 1.5]} intensity={1.2} color="#00e5ff" distance={5} />
+                    color={currentTheme.dirColor} />
+                {/* Colored Rim Lights */}
+                <pointLight position={[-3, 2, 1]} intensity={2.2} color={currentTheme.point1} distance={8} />
+                <pointLight position={[3, 1, 1]} intensity={1.8} color={currentTheme.point2} distance={8} />
+                <pointLight position={[0, -1.2, 1.5]} intensity={1.2} color={currentTheme.point3} distance={5} />
                 {/* Warm fill — lights the face from the front */}
                 <pointLight position={[0, 2, 4]} intensity={2.0} color="#ffffff" distance={7} />
 
                 <Suspense fallback={<LoadingSpinner />}>
                     <AvatarErrorBoundary>
-                        <AvatarModel avatarState={avatarState} isTaskFound={isTaskFound} onBehaviorLabel={setBehaviorLabel} />
+                        <AvatarModel
+                            avatarState={avatarState}
+                            isTaskFound={isTaskFound}
+                            onBehaviorLabel={setBehaviorLabel}
+                        />
                     </AvatarErrorBoundary>
                     <GlowPlatform />
                     {/* Wide diffuse shadow to sell contact with the lit platform */}

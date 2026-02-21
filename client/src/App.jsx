@@ -23,11 +23,17 @@ const App = () => {
     const [serverStatus, setServerStatus] = useState('connecting');
     const [activeTab, setActiveTab] = useState('chat');
     const [dailyReport, setDailyReport] = useState(null);
-    const [filterCategory, setFilterCategory] = useState('all');
+    const [filterType, setFilterType] = useState('all');
     const [filterPriority, setFilterPriority] = useState('all');
     const [toasts, setToasts] = useState([]);
     const [showNotifications, setShowNotifications] = useState(false);
     const [isTaskFound, setIsTaskFound] = useState(false);
+
+    // Settings State
+    const [aiTone, setAiTone] = useState('genz'); // Hardcoded genz tone
+    const [voiceEnabled, setVoiceEnabled] = useState(true);
+    const [theme, setTheme] = useState('cyberpunk'); // cyberpunk, morning, void
+    const [showWipeModal, setShowWipeModal] = useState(false);
 
     const headerRef = useRef(null);
 
@@ -103,15 +109,15 @@ const App = () => {
         return () => clearInterval(timer);
     }, [serverStatus, checkServerAndLoadData]);
 
-    const specialMemories = useMemo(() => memories.filter(m => m.type !== 'reminder'), [memories]);
+    const specialMemories = useMemo(() => memories.filter(m => ['note', 'goal', 'learning'].includes(m.type)), [memories]);
 
     const filteredMemories = useMemo(() => {
         return specialMemories.filter(m => {
-            const catMatch = filterCategory === 'all' || m.category === filterCategory;
+            const typeMatch = filterType === 'all' || m.type === filterType;
             const prioMatch = filterPriority === 'all' || m.priority === filterPriority;
-            return catMatch && prioMatch;
+            return typeMatch && prioMatch;
         });
-    }, [specialMemories, filterCategory, filterPriority]);
+    }, [specialMemories, filterType, filterPriority]);
 
     const sendMessage = useCallback(async (text) => {
         if (!text?.trim() || isLoading) return;
@@ -123,20 +129,22 @@ const App = () => {
         setIsTaskFound(false); // Reset on new message
 
         try {
-            const { reply, memoryAdded, addedMemoryTypes } = await api.sendMessage(USER_ID, text);
+            const { reply, memoryAdded, addedMemoryTypes } = await api.sendMessage(USER_ID, text, aiTone);
             const novaMsg = { role: 'assistant', content: reply, timestamp: new Date() };
             setMessages(prev => [...prev, novaMsg]);
             setAvatarState('talking');
 
             // Define special types that trigger "Evolution" and UI updates
-            const specialTypes = ['note', 'goal', 'learning', 'career'];
+            const specialTypes = ['note', 'goal', 'learning'];
 
             // Only trigger "Task Found" (Avatar evolution) if a special memory was added
             if (memoryAdded && addedMemoryTypes?.some(type => specialTypes.includes(type))) {
                 setIsTaskFound(true);
             }
 
-            speak(reply);
+            if (voiceEnabled) {
+                speak(reply);
+            }
 
             // Re-fetch memories if AI updated them
             if (memoryAdded) {
@@ -265,11 +273,11 @@ const App = () => {
                         </div>
                     </header>
                     <div className="filter-row">
-                        <select value={filterCategory} onChange={e => setFilterCategory(e.target.value)}>
-                            <option value="all">Categories</option>
-                            <option value="career">Career</option>
+                        <select value={filterType} onChange={e => setFilterType(e.target.value)}>
+                            <option value="all">All Types</option>
+                            <option value="goal">Goal</option>
+                            <option value="note">Note</option>
                             <option value="learning">Learning</option>
-                            <option value="personal">Personal</option>
                         </select>
                         <select value={filterPriority} onChange={e => setFilterPriority(e.target.value)}>
                             <option value="all">Priority</option>
@@ -308,6 +316,83 @@ const App = () => {
         }, 5000);
     }, []);
 
+    const handleWipeHistory = async () => {
+        try {
+            await api.clearHistory(USER_ID);
+            setMessages([]);
+            showToast('Chat history wiped successfully.', 'success');
+            setShowWipeModal(false);
+        } catch (err) {
+            console.error('Wipe history error:', err);
+            showToast('Failed to wipe history.', 'error');
+        }
+    };
+
+    const SettingsView = () => (
+        <div className="dashboard-view settings-overlay">
+            <div className="settings-container">
+                <header className="settings-header">
+                    <h2>⚙️ Settings & Preferences</h2>
+                </header>
+
+                <div className="settings-grid">
+                    {/* AVATAR CUSTOMIZATION */}
+                    <div className="settings-card glass-card">
+                        <h3>🎨 Avatar & Scene</h3>
+
+                        <div className="setting-group">
+                            <label>Scene Theme</label>
+                            <select value={theme} onChange={e => setTheme(e.target.value)} className="modern-select">
+                                <option value="cyberpunk">Cyberpunk Neon</option>
+                                <option value="morning">Soft Morning</option>
+                                <option value="void">Dark Void</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    {/* AI PERSONALITY */}
+                    <div className="settings-card glass-card">
+                        <h3>🧠 AI Personality & Voice</h3>
+
+                        <div className="setting-group toggle-group">
+                            <label>Text-to-Speech Voice</label>
+                            <label className="switch">
+                                <input type="checkbox" checked={voiceEnabled} onChange={() => setVoiceEnabled(!voiceEnabled)} />
+                                <span className="slider round"></span>
+                            </label>
+                        </div>
+                    </div>
+
+                    {/* DATA MANAGEMENT */}
+                    <div className="settings-card glass-card danger-zone">
+                        <h3>⚠️ Danger Zone</h3>
+                        <p className="setting-desc">Irreversible actions for your data.</p>
+
+                        <div className="danger-actions">
+                            <button className="danger-btn" onClick={() => setShowWipeModal(true)}>
+                                🗑️ Wipe Chat History
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Wipe Confirmation Modal */}
+            {showWipeModal && (
+                <div className="modal-overlay" onClick={() => setShowWipeModal(false)}>
+                    <div className="modal-content glass-card warning-modal" onClick={e => e.stopPropagation()}>
+                        <h3>⚠️ Confirm Deletion</h3>
+                        <p>Are you sure you want to delete all chat history? This cannot be undone.</p>
+                        <div className="modal-actions" style={{ marginTop: '20px', display: 'flex', gap: '10px' }}>
+                            <button className="tab-btn" onClick={() => setShowWipeModal(false)}>Cancel</button>
+                            <button className="danger-btn" onClick={handleWipeHistory}>Yes, Delete It</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+
     // Proactive Reminder Check
     useEffect(() => {
         if (memories.length > 0) {
@@ -323,6 +408,33 @@ const App = () => {
         }
     }, [memories, showToast]);
 
+
+    const [isAddingMemory, setIsAddingMemory] = useState(false);
+    const [newMemoryForm, setNewMemoryForm] = useState({ title: '', content: '', type: 'note', category: 'personal', priority: 'medium' });
+
+    const handleAddMemorySubmit = async (e) => {
+        e.preventDefault();
+        try {
+            // Note: Our backend sendMessage route does extraction, but we need a direct add route or we mock it via a manual API call.
+            // Since there is no POST /api/memories explicitly defined in the provided chat.js, we will use the backend's generic nature if we need to,
+            // OR assuming the 'api.js' service has a method `addMemory`. Let's trigger a UI update and an API call.
+            const newMem = {
+                userId: USER_ID,
+                ...newMemoryForm,
+                timestamp: new Date()
+            };
+            const saved = await api.addMemory(newMem);
+            // Refresh memories
+            const mems = await api.getMemories(USER_ID);
+            setMemories(mems || []);
+            setIsAddingMemory(false);
+            showToast('Item manually added!', 'success');
+            setNewMemoryForm({ title: '', content: '', type: 'note', category: 'personal', priority: 'medium' });
+        } catch (err) {
+            console.error('Failed to add memory:', err);
+            showToast('Error saving item.', 'error');
+        }
+    };
 
     return (
         <div className={`app ${activeTab}-active`}>
@@ -396,16 +508,17 @@ const App = () => {
 
             {/* LEFT PANEL: MEMORY & GOALS (Restored) */}
             <aside className="left-panel sidebar">
-                <div className="panel-header">
+                <div className="panel-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <h2 className="panel-title">🧠 MEMORY & GOALS</h2>
+                    <button className="add-btn" onClick={() => setIsAddingMemory(true)}>➕ Add New</button>
                 </div>
 
                 <div className="filter-row">
-                    <select value={filterCategory} onChange={e => setFilterCategory(e.target.value)}>
-                        <option value="all">Categories</option>
-                        <option value="career">Career</option>
+                    <select value={filterType} onChange={e => setFilterType(e.target.value)}>
+                        <option value="all">All Types</option>
+                        <option value="goal">Goal</option>
+                        <option value="note">Note</option>
                         <option value="learning">Learning</option>
-                        <option value="personal">Personal</option>
                     </select>
                     <select value={filterPriority} onChange={e => setFilterPriority(e.target.value)}>
                         <option value="all">Priority</option>
@@ -433,11 +546,66 @@ const App = () => {
                 </div>
             </aside>
 
+            {/* Modal for adding memory manually */}
+            {isAddingMemory && (
+                <div className="modal-overlay" onClick={() => setIsAddingMemory(false)}>
+                    <div className="modal-content glass-card" onClick={e => e.stopPropagation()}>
+                        <h3>➕ Add New Item</h3>
+                        <form onSubmit={handleAddMemorySubmit}>
+                            <div className="form-group">
+                                <label>Type</label>
+                                <select value={newMemoryForm.type} onChange={e => setNewMemoryForm({ ...newMemoryForm, type: e.target.value })}>
+                                    <option value="note">Note</option>
+                                    <option value="goal">Goal</option>
+                                    <option value="learning">Learning</option>
+                                </select>
+                            </div>
+                            <div className="form-group">
+                                <label>Title</label>
+                                <input required type="text" value={newMemoryForm.title} onChange={e => setNewMemoryForm({ ...newMemoryForm, title: e.target.value })} placeholder="Short title..." />
+                            </div>
+                            <div className="form-group">
+                                <label>Details</label>
+                                <textarea required value={newMemoryForm.content} onChange={e => setNewMemoryForm({ ...newMemoryForm, content: e.target.value })} placeholder="Add detailed context..."></textarea>
+                            </div>
+                            <div className="form-group" style={{ display: 'flex', gap: '10px' }}>
+                                <div style={{ flex: 1 }}>
+                                    <label>Category</label>
+                                    <select value={newMemoryForm.category} onChange={e => setNewMemoryForm({ ...newMemoryForm, category: e.target.value })}>
+                                        <option value="personal">Personal</option>
+                                        <option value="career">Career</option>
+                                        <option value="learning">Learning</option>
+                                        <option value="health">Health</option>
+                                    </select>
+                                </div>
+                                <div style={{ flex: 1 }}>
+                                    <label>Priority</label>
+                                    <select value={newMemoryForm.priority} onChange={e => setNewMemoryForm({ ...newMemoryForm, priority: e.target.value })}>
+                                        <option value="low">Low</option>
+                                        <option value="medium">Medium</option>
+                                        <option value="high">High</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div className="modal-actions" style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '20px' }}>
+                                <button type="button" className="tab-btn" onClick={() => setIsAddingMemory(false)}>Cancel</button>
+                                <button type="submit" className="add-btn" style={{ background: 'var(--accent-cyan)', color: 'black', fontWeight: 'bold' }}>Save</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
             {/* CENTER PANEL: AVATAR / DASHBOARD */}
             <main className="center-panel">
-                <div className="avatar-background-layer">
+                <div className={`avatar-background-layer theme-${theme}`}>
                     <div className="avatar-area">
-                        <Avatar3D avatarState={avatarState} isTaskFound={isTaskFound} className="avatar-canvas" />
+                        <Avatar3D
+                            avatarState={avatarState}
+                            isTaskFound={isTaskFound}
+                            className="avatar-canvas"
+                            theme={theme}
+                        />
 
                         {/* Holographic Overlays */}
                         <div className="hologram-ui" style={{ top: '20%', left: '15%' }}>
@@ -456,6 +624,7 @@ const App = () => {
                 </div>
 
                 {activeTab === 'dashboard' && <DashboardView />}
+                {activeTab === 'settings' && <SettingsView />}
             </main>
 
             {/* RIGHT PANEL: CHAT INTERFACE (Swapped) */}
