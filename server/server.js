@@ -34,7 +34,7 @@ mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/novaai')
   .then(() => {
     console.log('✅ MongoDB connected');
     app.listen(PORT, () => {
-      console.log(`🚀 Nova server running on port ${PORT}`);
+      console.log(`🚀 akane server running on port ${PORT}`);
       console.log(`🤖 AI Provider: ${process.env.AI_PROVIDER || 'gemini'}`);
     });
   })
