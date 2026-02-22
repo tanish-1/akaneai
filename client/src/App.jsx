@@ -3,6 +3,7 @@ import { gsap } from 'gsap';
 import Avatar3D from './components/Avatar3D';
 import ChatPanel from './components/ChatPanel';
 import AnalyticsView from './components/AnalyticsView';
+import DailySummaryCard from './components/DailySummaryCard';
 // GoalsPanel is removed
 import { useVoice } from './hooks/useVoice';
 import { api } from './services/api';
@@ -261,14 +262,6 @@ const App = () => {
                     </div>
                 </section>
 
-                {/* AI Suggestion */}
-                <section className="dashboard-card suggestion-card glass-card">
-                    <header className="card-header">
-                        <h3>💡 AI Suggestion</h3>
-                    </header>
-                    <p>Focus on finishing <strong>React Revision</strong> before starting new learning modules to maintain consistency.</p>
-                </section>
-
                 {/* MEMORY & GOALS INTEGRATED INTO DASHBOARD */}
                 <section className="dashboard-card memory-management-card glass-card">
                     <header className="card-header">
@@ -450,7 +443,7 @@ const App = () => {
             <header className="header" ref={headerRef}>
                 <div className="header-left">
                     <div className="header-logo">
-                        <div className="logo-dot"></div>
+                        <img src="/images/favicon.png" alt="Akane logo" style={{ width: '32px', height: '32px', objectFit: 'cover', borderRadius: '50%' }} />
                         Akane<span>-chan</span>
                     </div>
 
@@ -633,6 +626,17 @@ const App = () => {
                             <div className="h-header">MEMORY CACHE</div>
                             <div className="h-val">Active: {specialMemories.length}</div>
                         </div>
+
+                        {/* Floating Daily Summary over Avatar */}
+                        {activeTab === 'dashboard' && (
+                            <div style={{ position: 'absolute', bottom: '6%', left: '50%', transform: 'translateX(-50%)', zIndex: 100, transition: 'all 0.5s ease' }}>
+                                <DailySummaryCard
+                                    memories={memories}
+                                    onMinimize={() => { }}
+                                    onViewReport={() => setActiveTab('analytics')}
+                                />
+                            </div>
+                        )}
                     </div>
                 </div>
 
